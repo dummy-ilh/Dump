@@ -1,0 +1,100 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Example DataFrame (replace this with your actual data)
+data = {
+    'updated_on': pd.date_range(start='2023-01-01', periods=12, freq='M'),
+    'violator': ['#A', '#B', '#AA', '#AB', 'AC', 'AD', 'BA', 'BB', 'BC', 'BD', 'BE', 'BF'],
+    'policy_group_id': np.random.choice(['Policy1', 'Policy2', 'Policy3'], size=12)
+}
+
+df = pd.DataFrame(data)
+
+# Custom CSS for a professional look
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #f8f9fa;
+        padding: 1rem;
+    }
+    .reportview-container .sidebar-content {
+        padding: 1rem;
+    }
+    .block-container {
+        padding: 1rem;
+    }
+    .stDataFrame {
+        margin-top: 20px;
+    }
+    .stSelectbox, .stTextInput {
+        margin-top: 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Function to display monthly policy_group_id frequency for last 6 months as DataFrame
+def display_monthly_policy_frequency(df):
+    # Filter data for last 6 months
+    last_6_months = df[df['updated_on'] >= df['updated_on'].max() - pd.DateOffset(months=5)]
+    
+    # Pivot table to show monthly policy_group_id counts
+    monthly_counts = last_6_months.groupby(pd.Grouper(key='updated_on', freq='M'))['policy_group_id'].value_counts().unstack(fill_value=0)
+    st.subheader("Monthly Policy Group ID Frequency for Last 6 Months")
+    st.dataframe(monthly_counts)
+
+# Function to display quarterly policy_group_id frequency for last 6 months and trend analysis
+def display_quarterly_policy_frequency(df):
+    # Filter data for last 6 months
+    last_6_months = df[df['updated_on'] >= df['updated_on'].max() - pd.DateOffset(months=5)]
+    
+    # Pivot table to show quarterly policy_group_id counts
+    quarterly_counts = last_6_months.groupby(pd.Grouper(key='updated_on', freq='Q'))['policy_group_id'].value_counts().unstack(fill_value=0)
+    st.subheader("Quarterly Policy Group ID Frequency for Last 6 Months")
+
+    # Calculate trend and rate it as Red or Green
+    def calculate_trend(row):
+        trend = np.sign(row.diff().fillna(0).rolling(window=2).mean().iloc[-1])
+        if trend > 0:
+            return 'Red'  # Upward trend
+        else:
+            return 'Green'  # No upward trend
+    
+    quarterly_trends = quarterly_counts.apply(calculate_trend, axis=1)
+    quarterly_counts['Trend'] = quarterly_trends
+
+    st.dataframe(quarterly_counts)
+
+# Function to calculate the mode of all ratings
+def calculate_mode_of_ratings(df):
+    # Example function assuming you have a 'Rating' column
+    ratings = ['Red', 'Green']  # Replace with actual ratings column
+    mode_rating = df['Rating'].mode().iloc[0] if 'Rating' in df.columns else 'No ratings available'
+    st.write(f"Mode of all ratings: {mode_rating}")
+
+# Main function to create Streamlit app
+def main():
+    st.sidebar.title("Navigation")
+    page = st.sidebar.radio("Go to", ["Monthly Frequency", "Quarterly Frequency", "Mode of Ratings"])
+
+    if page == "Monthly Frequency":
+        st.title("Policy Group ID Analysis")
+        st.markdown("### Monthly Frequency Analysis")
+        display_monthly_policy_frequency(df)
+
+    elif page == "Quarterly Frequency":
+        st.title("Policy Group ID Analysis")
+        st.markdown("### Quarterly Frequency Analysis")
+        display_quarterly_policy_frequency(df)
+
+    elif page == "Mode of Ratings":
+        st.title("Policy Group ID Analysis")
+        st.markdown("### Mode of Ratings Analysis")
+        calculate_mode_of_ratings(df)
+
+if __name__ == "__main__":
+    main()
