@@ -1,0 +1,114 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Create a DataFrame with the specified violator types
+data = {
+    'ID': range(1, 13),
+    'violator': ['#A', '#B', '#AA', '#AB', 'AC', 'AD', 'BA', 'BB', 'BC', 'BD', 'BE', 'BF'],
+    'violation_type': [f'Violation {i}' for i in range(1, 13)],
+    'date': pd.date_range(start='2023-01-01', periods=12, freq='M')
+}
+
+df = pd.DataFrame(data)
+
+# Function to display DataFrame in reverse chronological order
+def display_dataframe(df):
+    df_sorted = df.sort_values(by='date', ascending=False)
+    st.dataframe(df_sorted.style.format(precision=2))
+
+# Function to generate a pie chart of violation type frequency
+def pie_chart_violation_type(df):
+    violation_counts = df['violation_type'].value_counts()
+    
+    # Threshold for pushing less frequent types into 'Others'
+    threshold = 0.05 * len(df)
+    small_categories = violation_counts[violation_counts < threshold].index
+    violation_counts['Others'] = violation_counts[small_categories].sum()
+    violation_counts.drop(small_categories, inplace=True)
+    
+    fig, ax = plt.subplots()
+    ax.pie(violation_counts, labels=violation_counts.index, autopct='%1.1f%%')
+    ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+    st.pyplot(fig)
+
+# Function to display frequency of top 10 violators
+def top_violators(df):
+    top_violators_counts = df['violator'].value_counts().head(10)
+    st.bar_chart(top_violators_counts)
+
+# Function to calculate and display side note statistics
+def display_side_note_stats(df):
+    total_data_points = len(df)
+    unique_violators = df['violator'].nunique()
+    unique_violations = df['violation_type'].nunique()
+    avg_violations_per_violator = df.groupby('violator')['violation_type'].count().mean()
+
+    st.subheader("Side Note: Data Summary")
+    st.write(f"Total Data Points: {total_data_points}")
+    st.write(f"Unique Violators: {unique_violators}")
+    st.write(f"Unique Violations: {unique_violations}")
+    st.write(f"Avg Violations per Violator: {avg_violations_per_violator:.2f}")
+
+# Main function to create Streamlit app
+def main():
+    st.sidebar.title("Navigation")
+    page = st.sidebar.radio("Go to", ["Page 1", "Page 2"])
+
+    if page == "Page 1":
+        st.title("Violation Data Analysis")
+        st.markdown("### Page 1: Data Overview and Analysis")
+        
+        option = st.selectbox("Select Option", ["Overall", "DF1", "DF2"], index=0)
+
+        if option == "Overall":
+            filtered_df = df.copy()
+        elif option == "DF1":
+            filtered_df = df[df['violator'].str.contains('#')]
+        elif option == "DF2":
+            filtered_df = df[~df['violator'].str.contains('#')]
+
+        with st.container():
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.subheader("a) Display DataFrame")
+                display_dataframe(filtered_df)
+                display_side_note_stats(filtered_df)
+                
+            with col2:
+                st.subheader("b) Violation Type Frequency Pie Chart")
+                pie_chart_violation_type(filtered_df)
+                
+            with col3:
+                st.subheader("c) Top 10 Violators")
+                top_violators(filtered_df)
+
+    elif page == "Page 2":
+        st.title("Violation Data Analysis")
+        st.markdown("### Page 2: Violator Search and Details")
+        
+        st.subheader("Filter Violators")
+        filter_option = st.selectbox("Choose violator type", ["Violators with #", "Violators without #"])
+        
+        if filter_option == "Violators with #":
+            filtered_df = df[df['violator'].str.contains('#')]
+        else:
+            filtered_df = df[~df['violator'].str.contains('#')]
+        
+        st.subheader("Search for a Violator")
+        violator = st.text_input("Enter violator name:")
+        
+        if violator:
+            violator_df = display_violator_details(violator, filtered_df)
+            if not violator_df.empty:
+                rank_and_rate_violators(violator, filtered_df)
+                show_monthly_violation_frequency(violator_df)
+            else:
+                st.write("No records found for this violator.")
+        else:
+            st.write("Please enter a violator name to search.")
+
+if __name__ == "__main__":
+    main()
